@@ -11,6 +11,7 @@ import { runFeatures } from './steps/runFeatures';
 import { runArchitecture } from './steps/runArchitecture';
 import { generateDocs } from './steps/generateDocs';
 import { saveToBlob } from './steps/saveToBlob';
+import { saveToVector } from './steps/saveToVector';
 
 import type { WikiGenerationInput, WikiOutput, WikiData, WikiPage } from './types';
 import {findRelevantCode} from "@/workflows/wikiGeneration/steps/findRelevantCode";
@@ -43,6 +44,10 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
 
   // Step 2: Build RAG index and get serializable state
   const indexState = await buildIndex(repoData.files);
+
+  // Step 2.5: Save embeddings to Upstash Vector for search
+  const repoSlug = slugify(repoData.name);
+  await saveToVector(repoData.name, repoSlug, githubUrl, repoData.defaultBranch, indexState);
 
   // Step 3: Run Recon Agent
   const recon = await runRecon(repoData);
@@ -147,7 +152,7 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
   };
 
   // Step 9: Save to Vercel Blob
-  const repoSlug = await saveToBlob(wikiData);
+  await saveToBlob(wikiData);
 
   console.log('='.repeat(70));
   console.log('✓ WIKI GENERATION COMPLETE');

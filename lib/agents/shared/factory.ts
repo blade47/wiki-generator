@@ -47,7 +47,6 @@ export function defineAgent<TInput, TOutput>(
           model: openai(settings.model),
           messages,
           schema: config.schema,
-          temperature: settings.temperature,
           maxTokens: settings.maxOutputTokens,
         });
         return result.object as TOutput;

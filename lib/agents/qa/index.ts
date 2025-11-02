@@ -19,7 +19,6 @@ export const qaAgent = defineAgent({
   systemMessage: SYSTEM_MESSAGE,
   buildUserMessage,
   settings: {
-    temperature: 0.3, // Low for accurate answers
     maxOutputTokens: 2000,
   },
 });

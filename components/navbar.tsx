@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Home, Sparkles } from 'lucide-react';
+import { BookOpen, Home, Sparkles, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function Navbar() {
@@ -25,7 +25,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <Link href="/">
               <Button
-                variant={isActive('/') && !isActive('/wiki') && !isActive('/generate') ? 'default' : 'ghost'}
+                variant={isActive('/') && !isActive('/wiki') && !isActive('/generate') && !isActive('/search') ? 'default' : 'ghost'}
                 size="sm"
                 className="gap-2"
               >
@@ -42,6 +42,17 @@ export function Navbar() {
               >
                 <BookOpen className="h-4 w-4" />
                 Wikis
+              </Button>
+            </Link>
+
+            <Link href="/search">
+              <Button
+                variant={isActive('/search') ? 'default' : 'ghost'}
+                size="sm"
+                className="gap-2"
+              >
+                <Search className="h-4 w-4" />
+                Search
               </Button>
             </Link>
 

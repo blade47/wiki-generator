@@ -3,9 +3,12 @@
  */
 
 import { RAGIndex, type IndexFile } from '@/lib/rag';
-import type { RAGIndexState } from '@/lib/rag/types';
+import type { RAGIndexState, CodeChunk } from '@/lib/rag/types';
 
-export async function buildIndex(files: IndexFile[]): Promise<RAGIndexState> {
+export async function buildIndex(files: IndexFile[]): Promise<{
+  chunks: CodeChunk[];
+  chunksWithEmbeddings: CodeChunk[];
+}> {
   'use step';
 
   console.log(`[Step] Building RAG index from ${files.length} files`);
@@ -16,12 +19,21 @@ export async function buildIndex(files: IndexFile[]): Promise<RAGIndexState> {
 
   await index.build(files);
 
-  const chunks = index.getChunks();
+  const chunksWithEmbeddings = index.getChunks();
 
-  console.log(`[Step] ✓ Built RAG index with ${chunks.length} chunks`);
-  console.log(`[Step] ✓ Returning chunks with embeddings for workflow`);
+  console.log(`[Step] ✓ Built RAG index with ${chunksWithEmbeddings.length} chunks`);
+
+  // Strip embeddings to reduce payload size for workflow
+  // (Embeddings are 12KB each and cause HTTP 413 in production)
+  const chunksWithoutEmbeddings = chunksWithEmbeddings.map(chunk => ({
+    ...chunk,
+    embedding: undefined, // Remove embedding to reduce size
+  }));
+
+  console.log(`[Step] ✓ Returning chunks (with and without embeddings)`);
 
   return {
-    chunks,
+    chunks: chunksWithoutEmbeddings, // For workflow (no embeddings)
+    chunksWithEmbeddings, // For immediate vector storage
   };
 }

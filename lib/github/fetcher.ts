@@ -104,6 +104,7 @@ export async function fetchRepoTree(
 export function shouldFetchFile(path: string): boolean {
   // Skip common non-essential files
   const skipPatterns = [
+    // Dependencies and build artifacts
     /node_modules\//,
     /\.git\//,
     /dist\//,
@@ -120,6 +121,18 @@ export function shouldFetchFile(path: string): boolean {
     /package-lock\.json$/,
     /yarn\.lock$/,
     /pnpm-lock\.yaml$/,
+
+    // Test files and directories
+    /\/__tests__\//,           // __tests__/ directories
+    /\/tests?\//,              // test/ or tests/ directories
+    /\.test\.(ts|tsx|js|jsx|py|go|rs)$/i,  // *.test.* files
+    /\.spec\.(ts|tsx|js|jsx|py)$/i,         // *.spec.* files
+    /_test\.go$/,              // Go test files (*_test.go)
+    /_test\.rs$/,              // Rust test files (*_test.rs)
+    /\.test$/,                 // Generic .test extension
+    /\.spec$/,                 // Generic .spec extension
+
+    // Media and binary files
     /\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i,
     /\.(mp4|mp3|mov|avi)$/i,
     /\.(pdf|doc|docx|xls|xlsx)$/i,

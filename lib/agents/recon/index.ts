@@ -19,7 +19,6 @@ export const reconAgent = defineAgent({
   systemMessage: SYSTEM_MESSAGE,
   buildUserMessage,
   settings: {
-    temperature: 0.3, // Low for consistent analysis
     maxOutputTokens: 2000, // Enough for comprehensive analysis
   },
 });

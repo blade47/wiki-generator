@@ -19,7 +19,6 @@ export const featuresAgent = defineAgent({
   systemMessage: SYSTEM_MESSAGE,
   buildUserMessage,
   settings: {
-    temperature: 0.4, // Moderate creativity for feature naming
     maxOutputTokens: 3000, // Can have many features
   },
 });
