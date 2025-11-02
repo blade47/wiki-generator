@@ -22,7 +22,8 @@
     "test:hyde": "npx tsx scripts/test-hyde.ts",
     "test:architecture": "npx tsx scripts/test-architecture.ts",
     "test:docs": "npx tsx scripts/test-docs-generator.ts",
-    "test:qa": "npx tsx scripts/test-qa.ts"
+    "test:qa": "npx tsx scripts/test-qa.ts",
+    "test:github": "npx tsx scripts/test-github-fetcher.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.59",

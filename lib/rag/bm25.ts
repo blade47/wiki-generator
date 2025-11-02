@@ -7,7 +7,7 @@
  * - BM25-Text: Search over metadata (file, type, name, docs)
  */
 
-import type { CodeChunk } from './types';
+import type { CodeChunk, BM25State } from './types';
 
 /**
  * BM25 parameters (standard values)
@@ -98,7 +98,8 @@ export class BM25Index {
 
   constructor(
     private readonly getDocumentText: (chunk: CodeChunk) => string,
-    private readonly name: string
+    private readonly name: string,
+    private readonly indexType: 'code' | 'text'
   ) {}
 
   /**
@@ -162,13 +163,61 @@ export class BM25Index {
       uniqueTerms: this.idf.size,
     };
   }
+
+  /**
+   * Serialize to state (for Vercel Workflow)
+   */
+  toState(): BM25State {
+    return {
+      documents: this.documents,
+      idf: this.idf,
+      avgDocLength: this.avgDocLength,
+      type: this.indexType,
+      name: this.name,
+    };
+  }
+
+  /**
+   * Rebuild from state (for Vercel Workflow)
+   */
+  static fromState(state: BM25State, chunks: CodeChunk[]): BM25Index {
+    // Validate state matches chunks
+    if (state.documents.length !== chunks.length) {
+      throw new Error(
+        `State/chunks length mismatch: state has ${state.documents.length} documents, ` +
+        `but received ${chunks.length} chunks`
+      );
+    }
+
+    const getDocumentText = state.type === 'code'
+      ? (chunk: CodeChunk) => chunk.code
+      : (chunk: CodeChunk) => {
+          const parts: string[] = [];
+          parts.push(chunk.filePath);
+          parts.push(chunk.type);
+          parts.push(chunk.name);
+          parts.push(chunk.language);
+          if (chunk.context.jsDoc) parts.push(chunk.context.jsDoc);
+          if (chunk.context.parentClass) parts.push(chunk.context.parentClass);
+          parts.push(...chunk.keywords);
+          return parts.join(' ');
+        };
+
+    const index = new BM25Index(getDocumentText, state.name, state.type);
+    index.documents = state.documents;
+    index.chunks = chunks;
+    index.idf = state.idf;
+    index.avgDocLength = state.avgDocLength;
+
+    return index;
+  }
 }
 
 /**
  * Create BM25-Code index (searches actual code)
  */
 export function createCodeBM25(chunks: CodeChunk[]): BM25Index {
-  const index = new BM25Index(chunk => chunk.code, 'BM25-Code');
+  const index = new BM25Index(chunk => chunk.code, 'BM25-Code', 'code');
   index.build(chunks);
   return index;
 }
@@ -191,7 +240,7 @@ export function createTextBM25(chunks: CodeChunk[]): BM25Index {
     }
     parts.push(...chunk.keywords);
     return parts.join(' ');
-  }, 'BM25-Text');
+  }, 'BM25-Text', 'text');
   index.build(chunks);
   return index;
 }

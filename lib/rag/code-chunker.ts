@@ -150,6 +150,57 @@ function extractImports(code: string): string[] {
 }
 
 /**
+ * Extract exports from code
+ */
+function extractExports(code: string): string[] {
+  const exports: string[] = [];
+
+  // JavaScript/TypeScript exports
+  // Match: export function foo, export class Bar, export const X, etc.
+  const jsExports = code.match(/export\s+(?:default\s+)?(?:async\s+)?(?:function|class|const|let|var|interface|type|enum)\s+(\w+)/g);
+  if (jsExports) {
+    jsExports.forEach(exp => {
+      const match = exp.match(/\s+(\w+)$/);
+      if (match) exports.push(match[1]);
+    });
+  }
+
+  // Named exports: export { foo, bar }
+  const namedExports = code.match(/export\s+\{([^}]+)\}/g);
+  if (namedExports) {
+    namedExports.forEach(exp => {
+      const names = exp.match(/\{([^}]+)\}/)?.[1];
+      if (names) {
+        names.split(',').forEach(name => {
+          const cleaned = name.trim().split(/\s+as\s+/)[0].trim();
+          if (cleaned) exports.push(cleaned);
+        });
+      }
+    });
+  }
+
+  // Python: def at module level (simple heuristic)
+  const pythonDefs = code.match(/^def\s+(\w+)/gm);
+  if (pythonDefs) {
+    pythonDefs.forEach(def => {
+      const match = def.match(/def\s+(\w+)/);
+      if (match) exports.push(match[1]);
+    });
+  }
+
+  // Python: class at module level
+  const pythonClasses = code.match(/^class\s+(\w+)/gm);
+  if (pythonClasses) {
+    pythonClasses.forEach(cls => {
+      const match = cls.match(/class\s+(\w+)/);
+      if (match) exports.push(match[1]);
+    });
+  }
+
+  return [...new Set(exports)]; // Deduplicate
+}
+
+/**
  * Extract keywords from code for BM25 search
  */
 function extractKeywords(chunk: Omit<CodeChunk, 'keywords' | 'embedding'>): string[] {
@@ -212,6 +263,8 @@ function extractChunk(
   const jsDoc = extractJSDoc(node, lines);
   const imports = extractImports(code);
 
+  const exports = extractExports(code);
+
   const baseChunk: Omit<CodeChunk, 'keywords' | 'embedding'> = {
     id: createChunkId(filePath, startLine),
     filePath,
@@ -223,7 +276,7 @@ function extractChunk(
     code,
     context: {
       imports,
-      exports: [], // TODO: Detect exports
+      exports,
       parentClass,
       jsDoc,
       dependencies: [],

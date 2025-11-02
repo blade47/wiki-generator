@@ -143,12 +143,15 @@ export class RAGIndex {
    */
   private async compressChunks(chunks: CodeChunk[]): Promise<number> {
     let compressed = 0;
+    let originalBytes = 0;
+    let compressedBytes = 0;
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
 
       if (chunk.code.length > this.config.compressionThreshold) {
         try {
+          const originalSize = chunk.code.length;
           const result = await codeSummarizerAgent.execute({
             chunk,
             targetSize: this.config.compressionThreshold,
@@ -156,12 +159,21 @@ export class RAGIndex {
 
           chunk.code = result.compressed;
           chunk.compressed = true;
-          chunk.originalSize = chunk.code.length;
+          chunk.originalSize = originalSize;
+
+          originalBytes += originalSize;
+          compressedBytes += result.compressed.length;
           compressed++;
         } catch (error) {
           console.warn(`  Failed to compress chunk ${chunk.id}:`, error);
         }
       }
+    }
+
+    if (compressed > 0) {
+      const savedBytes = originalBytes - compressedBytes;
+      const compressionRatio = ((1 - compressedBytes / originalBytes) * 100).toFixed(1);
+      console.log(`  ✓ Compression stats: ${savedBytes.toLocaleString()} bytes saved (${compressionRatio}% reduction)`);
     }
 
     return compressed;
@@ -238,6 +250,26 @@ export class RAGIndex {
    */
   getChunks(): CodeChunk[] {
     return this.chunks;
+  }
+
+  /**
+   * Get BM25-Code index
+   */
+  getCodeBM25(): BM25Index {
+    if (!this.codeBM25) {
+      throw new Error('Index not built. Call build() first.');
+    }
+    return this.codeBM25;
+  }
+
+  /**
+   * Get BM25-Text index
+   */
+  getTextBM25(): BM25Index {
+    if (!this.textBM25) {
+      throw new Error('Index not built. Call build() first.');
+    }
+    return this.textBM25;
   }
 
   /**

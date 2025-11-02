@@ -13,6 +13,28 @@ export type ChunkType =
   | 'documentation' // Other .md files (split by sections)
   | 'metadata';     // package.json, Cargo.toml, etc.
 
+/**
+ * Serializable BM25 Index State
+ * Can be passed between Vercel Workflow steps
+ */
+export interface BM25State {
+  documents: string[][];
+  idf: Map<string, number>;
+  avgDocLength: number;
+  type: 'code' | 'text';
+  name: string;
+}
+
+/**
+ * Serializable RAG Index State
+ * Contains everything needed to rebuild search functionality
+ */
+export interface RAGIndexState {
+  chunks: CodeChunk[];
+  codeBM25: BM25State;
+  textBM25: BM25State;
+}
+
 export interface CodeChunk {
   // Identity
   id: string; // Unique ID: `${repoUrl}:${filePath}:${startLine}`

@@ -44,6 +44,12 @@ next-env.d.ts
 /docs
 CLAUDE.md
 
+# test outputs
+test-output-*.md
+
+# generated wikis
+/generated-wikis
+
 # ShadowGit tracking directory (auto-added)
 .shadowgit.git
 .idea
