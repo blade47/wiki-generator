@@ -17,6 +17,7 @@ const feature: Feature = {
   description: 'Users can create accounts and log in securely to access their personal todo lists',
   category: 'Authentication & Authorization',
   relatedChunks: ['auth:1', 'auth:2', 'users:1'],
+  importance: 10, // Optional - defaults to 5 if not provided
 };
 
 const codeChunks: CodeChunk[] = [

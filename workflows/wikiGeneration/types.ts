@@ -12,7 +12,6 @@ export interface WikiGenerationInput {
   options?: {
     maxFiles?: number;
     maxFileSize?: number;
-    maxFeaturesPerCategory?: number;
   };
 }
 
@@ -22,6 +21,7 @@ export interface WikiPage {
   title: string;
   slug: string;
   content: DocsGeneratorOutput;
+  importance?: number;
 }
 
 export interface WikiData {
@@ -30,6 +30,7 @@ export interface WikiData {
     fullName: string;
     description: string;
     url: string;
+    defaultBranch: string;
   };
   recon: ReconOutput;
   features: FeaturesOutput;

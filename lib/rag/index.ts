@@ -1,22 +1,15 @@
 /**
- * RAG Index - Complete RAG Pipeline
+ * RAG Index - Simplified Pipeline
  *
- * Main interface for the entire RAG system:
+ * Builds RAG index for the workflow:
  * - Chunking (code + non-code)
  * - Code compression (optional)
  * - Embeddings (batch)
- * - BM25 (dual: code + text)
- * - Hybrid search (Vector + BM25-Code + BM25-Text)
- * - 3-stage reranking (100 → 30 → 10)
  */
 
 import type { CodeChunk } from './types';
-import type { SearchResult } from './hybrid-search';
 import { chunkFile } from './chunker';
-import { embedChunks, generateEmbedding } from './embedder';
-import { createCodeBM25, createTextBM25, type BM25Index } from './bm25';
-import { HybridSearch } from './hybrid-search';
-import { rerankResults } from './reranking';
+import { embedChunks } from './embedder';
 import { codeSummarizerAgent } from '@/lib/agents/code-summarizer';
 
 /**
@@ -40,15 +33,6 @@ export interface RAGIndexConfig {
    * Compression threshold (chars)
    */
   compressionThreshold?: number;
-
-  /**
-   * Reranking configuration
-   */
-  reranking?: {
-    stage1TopK?: number; // Hybrid search
-    stage2TopK?: number; // Embedding rerank
-    stage3TopK?: number; // LLM rerank
-  };
 }
 
 /**
@@ -57,11 +41,6 @@ export interface RAGIndexConfig {
 interface InternalConfig {
   enableCompression: boolean;
   compressionThreshold: number;
-  reranking: {
-    stage1TopK: number;
-    stage2TopK: number;
-    stage3TopK: number;
-  };
 }
 
 /**
@@ -69,12 +48,7 @@ interface InternalConfig {
  */
 const DEFAULT_CONFIG: InternalConfig = {
   enableCompression: true,
-  compressionThreshold: 500,
-  reranking: {
-    stage1TopK: 100,
-    stage2TopK: 30,
-    stage3TopK: 10,
-  },
+  compressionThreshold: 2000, // Only compress chunks larger than 2KB (genuinely large chunks)
 };
 
 /**
@@ -82,19 +56,12 @@ const DEFAULT_CONFIG: InternalConfig = {
  */
 export class RAGIndex {
   private chunks: CodeChunk[] = [];
-  private codeBM25!: BM25Index;
-  private textBM25!: BM25Index;
-  private hybridSearch!: HybridSearch;
   private config: InternalConfig;
 
   constructor(config: RAGIndexConfig = {}) {
     this.config = {
       ...DEFAULT_CONFIG,
       ...config,
-      reranking: {
-        ...DEFAULT_CONFIG.reranking,
-        ...config.reranking,
-      },
     };
   }
 
@@ -123,52 +90,92 @@ export class RAGIndex {
     this.chunks = await embedChunks(allChunks);
     console.log('');
 
-    // 4. Build BM25 indexes
-    console.log('Step 4: Building BM25 indexes...');
-    this.codeBM25 = createCodeBM25(this.chunks);
-    this.textBM25 = createTextBM25(this.chunks);
-    console.log('');
-
-    // 5. Create hybrid search
-    console.log('Step 5: Creating hybrid search...');
-    this.hybridSearch = new HybridSearch(this.chunks, this.codeBM25, this.textBM25);
-    console.log('  ✓ Hybrid search ready\n');
-
     console.log('=== Index Build Complete ===\n');
     this.printStats();
   }
 
   /**
-   * Compress large chunks with AI
+   * Compress large chunks with AI (parallel processing)
    */
   private async compressChunks(chunks: CodeChunk[]): Promise<number> {
-    let compressed = 0;
-    let originalBytes = 0;
-    let compressedBytes = 0;
+    const MAX_COMPRESSIBLE_SIZE = 30000; // 30KB - skip compression for extremely large chunks
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
+    // Find chunks that need compression
+    const chunksToCompress = chunks.filter(
+      chunk =>
+        chunk.code.length > this.config.compressionThreshold &&
+        chunk.code.length <= MAX_COMPRESSIBLE_SIZE
+    );
 
-      if (chunk.code.length > this.config.compressionThreshold) {
-        try {
+    // Count skipped chunks
+    const tooLarge = chunks.filter(chunk => chunk.code.length > MAX_COMPRESSIBLE_SIZE);
+    if (tooLarge.length > 0) {
+      console.log(
+        `  ⚠️  Skipping ${tooLarge.length} extremely large chunks (>${MAX_COMPRESSIBLE_SIZE} chars)`
+      );
+    }
+
+    if (chunksToCompress.length === 0) {
+      return 0;
+    }
+
+    console.log(`  Found ${chunksToCompress.length} chunks to compress (batches of 5)...`);
+
+    // Compress chunks with controlled parallelism (5 at a time)
+    const COMPRESSION_BATCH_SIZE = 5;
+    const compressionResults: PromiseSettledResult<{
+      chunk: CodeChunk;
+      result: { compressed: string };
+      originalSize: number;
+    }>[] = [];
+
+    for (let i = 0; i < chunksToCompress.length; i += COMPRESSION_BATCH_SIZE) {
+      const batch = chunksToCompress.slice(i, i + COMPRESSION_BATCH_SIZE);
+      const batchNumber = Math.floor(i / COMPRESSION_BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(chunksToCompress.length / COMPRESSION_BATCH_SIZE);
+
+      console.log(`    Compressing batch ${batchNumber}/${totalBatches} (${batch.length} chunks)...`);
+
+      const batchResults = await Promise.allSettled(
+        batch.map(async (chunk) => {
           const originalSize = chunk.code.length;
           const result = await codeSummarizerAgent.execute({
             chunk,
             targetSize: this.config.compressionThreshold,
           });
 
-          chunk.code = result.compressed;
-          chunk.compressed = true;
-          chunk.originalSize = originalSize;
+          return {
+            chunk,
+            result,
+            originalSize,
+          };
+        })
+      );
 
-          originalBytes += originalSize;
-          compressedBytes += result.compressed.length;
-          compressed++;
-        } catch (error) {
-          console.warn(`  Failed to compress chunk ${chunk.id}:`, error);
-        }
-      }
+      compressionResults.push(...batchResults);
+      console.log(`    ✓ Batch ${batchNumber}/${totalBatches} complete`);
     }
+
+    // Process results
+    let compressed = 0;
+    let originalBytes = 0;
+    let compressedBytes = 0;
+
+    compressionResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        const { chunk, result: compressionResult, originalSize } = result.value;
+
+        chunk.code = compressionResult.compressed;
+        chunk.compressed = true;
+        chunk.originalSize = originalSize;
+
+        originalBytes += originalSize;
+        compressedBytes += compressionResult.compressed.length;
+        compressed++;
+      } else {
+        console.warn(`  Failed to compress chunk ${chunksToCompress[index].id}:`, result.reason);
+      }
+    });
 
     if (compressed > 0) {
       const savedBytes = originalBytes - compressedBytes;
@@ -180,96 +187,10 @@ export class RAGIndex {
   }
 
   /**
-   * Search with full pipeline
-   */
-  async search(query: string): Promise<SearchResult[]> {
-    if (!this.hybridSearch) {
-      throw new Error('Index not built. Call build() first.');
-    }
-
-    // Generate query embedding
-    const queryEmbedding = await generateEmbedding(query);
-
-    // Run hybrid search
-    const hybridResults = await this.hybridSearch.search(
-      query,
-      queryEmbedding,
-      this.config.reranking.stage1TopK
-    );
-
-    // Run 3-stage reranking
-    const { stage3 } = await rerankResults(
-      query,
-      queryEmbedding,
-      hybridResults,
-      {
-        stage2TopK: this.config.reranking.stage2TopK,
-        stage3TopK: this.config.reranking.stage3TopK,
-      }
-    );
-
-    return stage3;
-  }
-
-  /**
-   * Search with detailed breakdown
-   */
-  async searchWithBreakdown(query: string): Promise<{
-    query: string;
-    stage1: SearchResult[];
-    stage2: SearchResult[];
-    stage3: SearchResult[];
-  }> {
-    if (!this.hybridSearch) {
-      throw new Error('Index not built. Call build() first.');
-    }
-
-    const queryEmbedding = await generateEmbedding(query);
-
-    const hybridResults = await this.hybridSearch.search(
-      query,
-      queryEmbedding,
-      this.config.reranking.stage1TopK
-    );
-
-    const { stage1, stage2, stage3 } = await rerankResults(
-      query,
-      queryEmbedding,
-      hybridResults,
-      {
-        stage2TopK: this.config.reranking.stage2TopK,
-        stage3TopK: this.config.reranking.stage3TopK,
-      }
-    );
-
-    return { query, stage1, stage2, stage3 };
-  }
-
-  /**
    * Get all chunks
    */
   getChunks(): CodeChunk[] {
     return this.chunks;
-  }
-
-  /**
-   * Get BM25-Code index
-   */
-  getCodeBM25(): BM25Index {
-    if (!this.codeBM25) {
-      throw new Error('Index not built. Call build() first.');
-    }
-    return this.codeBM25;
-  }
-
-  /**
-   * Get BM25-Text index
-   */
-  getTextBM25(): BM25Index {
-    if (!this.textBM25) {
-      throw new Error('Index not built. Call build() first.');
-    }
-    return this.textBM25;
   }
 
   /**
@@ -284,8 +205,6 @@ export class RAGIndex {
       compressed,
       compressionRate:
         compressed > 0 ? ((compressed / this.chunks.length) * 100).toFixed(1) : '0',
-      codeBM25: this.codeBM25?.getStats(),
-      textBM25: this.textBM25?.getStats(),
     };
   }
 

@@ -11,22 +11,17 @@ export async function buildIndex(files: IndexFile[]): Promise<RAGIndexState> {
   console.log(`[Step] Building RAG index from ${files.length} files`);
 
   const index = new RAGIndex({
-    enableCompression: true,
-    compressionThreshold: 2000,
+    enableCompression: false, // Disable compression - embeddings truncate to 10KB anyway
   });
 
   await index.build(files);
 
   const chunks = index.getChunks();
-  const codeBM25 = index.getCodeBM25();
-  const textBM25 = index.getTextBM25();
 
   console.log(`[Step] ✓ Built RAG index with ${chunks.length} chunks`);
-  console.log(`[Step] ✓ Serializing index state for workflow`);
+  console.log(`[Step] ✓ Returning chunks with embeddings for workflow`);
 
   return {
     chunks,
-    codeBM25: codeBM25.toState(),
-    textBM25: textBM25.toState(),
   };
 }

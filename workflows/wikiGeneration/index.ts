@@ -9,11 +9,11 @@ import { buildIndex } from './steps/buildIndex';
 import { runRecon } from './steps/runRecon';
 import { runFeatures } from './steps/runFeatures';
 import { runArchitecture } from './steps/runArchitecture';
-import { findRelevantCode } from './steps/findRelevantCode';
 import { generateDocs } from './steps/generateDocs';
-import { saveToFileSystem } from './steps/saveToFileSystem';
+import { saveToBlob } from './steps/saveToBlob';
 
 import type { WikiGenerationInput, WikiOutput, WikiData, WikiPage } from './types';
+import {findRelevantCode} from "@/workflows/wikiGeneration/steps/findRelevantCode";
 
 function slugify(text: string): string {
   return text
@@ -29,9 +29,8 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
 
   const { githubUrl, options = {} } = input;
   const {
-    maxFiles = 100,
+    maxFiles = 300,
     maxFileSize = 500000,
-    maxFeaturesPerCategory = 5,
   } = options;
 
   console.log('='.repeat(70));
@@ -57,64 +56,75 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
   // Step 7: Generate documentation for each feature (in parallel batches)
   const pages: WikiPage[] = [];
 
-  // Group features by category and limit
-  const featuresByCategory = new Map<string, typeof features.features>();
+  // Sort features by importance (high to low) to prioritize critical features
+  const featuresToProcess =
+      [...features.features].sort((a, b) => (b.importance ?? 5) - (a.importance ?? 5));
 
-  for (const feature of features.features) {
-    const category = feature.category;
-    const existing = featuresByCategory.get(category) ?? [];
+  console.log(`Generating documentation for ${featuresToProcess.length} features in parallel...`);
 
-    if (existing.length < maxFeaturesPerCategory) {
-      featuresByCategory.set(category, [...existing, feature]);
-    }
-  }
+  // Process ALL features in parallel
+  const results = await Promise.all(
+    featuresToProcess.map(async feature => {
+      // Use chunks already identified by Features Agent
+      let relevantChunks = indexState.chunks.filter(chunk =>
+        feature.relatedChunks.includes(chunk.id)
+      );
 
-  // Flatten features to process
-  const featuresToProcess = Array.from(featuresByCategory.values()).flat();
-
-  console.log(`Generating documentation for ${featuresToProcess.length} features...`);
-
-  // Process features in parallel batches of 3 to avoid rate limits
-  const batchSize = 3;
-  for (let i = 0; i < featuresToProcess.length; i += batchSize) {
-    const batch = featuresToProcess.slice(i, i + batchSize);
-
-    const batchResults = await Promise.all(
-      batch.map(async feature => {
-        // Find relevant code using HyDE + RAG
-        const relevantChunks = await findRelevantCode({
+      // Fallback: If Features Agent didn't identify chunks, use simple embedding search
+      if (relevantChunks.length === 0) {
+        console.log(`[Workflow] No related chunks for "${feature.name}", using simple embedding search fallback`);
+        relevantChunks = await findRelevantCode({
           feature,
           repoName: repoData.name,
           repoOverview: recon.overview,
           techStack: recon.techStack,
           indexState,
         });
+      } else {
+        console.log(`[Workflow] Using ${relevantChunks.length} chunks from Features Agent for "${feature.name}"`);
+      }
 
-        // Generate documentation
-        const docs = await generateDocs({
-          feature,
-          repoName: repoData.name,
-          repoOverview: recon.overview,
-          relevantChunks,
-        });
-
-        return docs;
-      })
-    );
-
-    // Add to pages
-    batch.forEach((feature, idx) => {
-      pages.push({
-        featureId: slugify(feature.name),
-        category: feature.category,
-        title: feature.name,
-        slug: slugify(feature.name),
-        content: batchResults[idx],
+      // Generate documentation
+      const docs = await generateDocs({
+        feature,
+        repoName: repoData.name,
+        repoOverview: recon.overview,
+        relevantChunks,
       });
-    });
 
-    console.log(`Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(featuresToProcess.length / batchSize)}`);
-  }
+      return { feature, docs };
+    })
+  );
+
+  // Build pages array
+  results.forEach(({ feature, docs }) => {
+    pages.push({
+      featureId: slugify(feature.name),
+      category: feature.category,
+      title: feature.name,
+      slug: slugify(feature.name),
+      content: docs,
+      importance: feature.importance ?? 5, // Default to 5 if not provided
+    });
+  });
+
+  console.log(`✓ Generated documentation for all ${pages.length} features`);
+
+  // Step 7.5: Filter related features to only include pages that exist
+  // (safety net so docs do not have broken links)
+  const validSlugs = new Set(pages.map(p => p.slug));
+
+  pages.forEach(page => {
+    if (page.content.relatedFeatures && page.content.relatedFeatures.length > 0) {
+      // Filter to only include features that have actual pages
+      page.content.relatedFeatures = page.content.relatedFeatures.filter(featureName => {
+        const slug = slugify(featureName);
+        return validSlugs.has(slug);
+      });
+    }
+  });
+
+  console.log('Filtered related features to only include existing pages');
 
   // Step 8: Build wiki data
   const wikiData: WikiData = {
@@ -123,6 +133,7 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
       fullName: repoData.fullName,
       description: repoData.description,
       url: githubUrl,
+      defaultBranch: repoData.defaultBranch,
     },
     recon,
     features,
@@ -135,18 +146,19 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
     },
   };
 
-  // Step 9: Save to file system
-  const outputDir = await saveToFileSystem(wikiData);
+  // Step 9: Save to Vercel Blob
+  const repoSlug = await saveToBlob(wikiData);
 
   console.log('='.repeat(70));
   console.log('✓ WIKI GENERATION COMPLETE');
   console.log('='.repeat(70));
   console.log(`Pages generated: ${pages.length}`);
-  console.log(`Output directory: ${outputDir}`);
+  console.log(`Repository: ${repoSlug}`);
+  console.log(`Wiki URL: /wiki/${repoSlug}`);
   console.log('='.repeat(70));
 
   return {
-    outputDir,
+    outputDir: `/wiki/${repoSlug}`,
     pagesGenerated: pages.length,
     wikiData,
   };

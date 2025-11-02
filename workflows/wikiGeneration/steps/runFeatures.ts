@@ -15,12 +15,13 @@ export async function runFeatures(
   'use step';
 
   console.log(`[Step] Running Features Agent`);
+  console.log(`[Step] Total chunks: ${chunks.length}, using: ${Math.min(chunks.length, 300)}`);
 
   const features = await featuresAgent.execute({
     repoName: repoData.name,
     overview: recon.overview,
     readme: repoData.readme,
-    codeChunks: chunks.slice(0, 50),
+    codeChunks: chunks.slice(0, 300), // Cap at 300 chunks (~120K tokens) for token limit safety
   });
 
   console.log(`[Step] ✓ Detected ${features.features.length} features`);

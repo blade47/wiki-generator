@@ -9,6 +9,8 @@ export const SYSTEM_MESSAGE = `You are a repository reconnaissance specialist.
 
 Your task is to analyze a GitHub repository and provide a comprehensive overview of its structure, tech stack, and architecture.
 
+IMPORTANT: Return actual data values in JSON format, NOT a JSON Schema definition.
+
 Focus on:
 1. **Overview**: What the project does (from the user's perspective)
 2. **Tech stack**: Languages, frameworks, and tools
@@ -23,7 +25,8 @@ Guidelines:
 - Identify patterns from file structure and naming conventions
 - Infer architecture from directory organization
 - MUST provide both architecture.pattern AND architecture.description
-- Prioritize accuracy over speculation`;
+- Prioritize accuracy over speculation
+- Return a JSON object with actual string/array values, NOT a schema with "type" and "properties"`;
 
 export function buildUserMessage(input: ReconInput): string {
   const { repoName, readme, metadata, filePaths, sampleFiles } = input;

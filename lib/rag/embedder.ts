@@ -14,7 +14,14 @@ import type { CodeChunk } from './types';
  */
 export const EMBEDDING_MODEL = 'text-embedding-3-small';
 export const EMBEDDING_DIMENSIONS = 1536;
-export const BATCH_SIZE = 100;
+export const BATCH_SIZE = 50; // Reduced from 100 to avoid 8192 token limit
+export const PARALLEL_BATCHES = 3; // Process 3 batches concurrently (conservative)
+
+/**
+ * Maximum code size for embeddings (to avoid token limits)
+ * ~10KB ≈ 2500 tokens, leaving room for metadata
+ */
+const MAX_EMBEDDING_CODE_SIZE = 10000;
 
 /**
  * Create rich embedding text from a chunk
@@ -43,8 +50,14 @@ export function createEmbeddingText(chunk: CodeChunk): string {
     parts.push(`Class: ${chunk.context.parentClass}`);
   }
 
-  // The actual code
-  parts.push(`Code:\n${chunk.code}`);
+  // The actual code (truncated if too large)
+  let code = chunk.code;
+  if (code.length > MAX_EMBEDDING_CODE_SIZE) {
+    code = code.slice(0, MAX_EMBEDDING_CODE_SIZE);
+    parts.push(`Code (truncated to ${MAX_EMBEDDING_CODE_SIZE} chars):\n${code}...`);
+  } else {
+    parts.push(`Code:\n${code}`);
+  }
 
   return parts.join('\n\n');
 }
@@ -81,42 +94,66 @@ export async function embedChunk(chunk: CodeChunk): Promise<CodeChunk> {
 export async function embedChunks(chunks: CodeChunk[]): Promise<CodeChunk[]> {
   const totalChunks = chunks.length;
   const chunksWithEmbeddings = [...chunks];
+  const totalBatches = Math.ceil(chunks.length / BATCH_SIZE);
 
-  console.log(`Generating embeddings for ${totalChunks} chunks...`);
+  console.log(`Generating embeddings for ${totalChunks} chunks (${totalBatches} batches, ${PARALLEL_BATCHES} concurrent)...`);
 
-  // Process in batches
+  // Create batch tasks
+  const batchTasks: Array<{
+    batch: CodeChunk[];
+    batchNumber: number;
+    startIndex: number;
+  }> = [];
+
   for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
     const batch = chunks.slice(i, i + BATCH_SIZE);
     const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(chunks.length / BATCH_SIZE);
-
-    console.log(`  Batch ${batchNumber}/${totalBatches} (${batch.length} chunks)...`);
-
-    try {
-      // Create embedding texts for this batch
-      const embeddingTexts = batch.map(createEmbeddingText);
-
-      // Generate embeddings in parallel
-      const { embeddings } = await embedMany({
-        model: openai.embedding(EMBEDDING_MODEL),
-        values: embeddingTexts,
-      });
-
-      // Attach embeddings to chunks
-      embeddings.forEach((embedding, idx) => {
-        const chunkIndex = i + idx;
-        chunksWithEmbeddings[chunkIndex] = {
-          ...chunksWithEmbeddings[chunkIndex],
-          embedding,
-        };
-      });
-
-      console.log(`    ✓ Embedded ${batch.length} chunks`);
-    } catch (error) {
-      console.error(`    ✗ Failed to embed batch ${batchNumber}:`, error);
-      throw error;
-    }
+    batchTasks.push({ batch, batchNumber, startIndex: i });
   }
+
+  // Process batches with controlled parallelism
+  const results: Array<{ embeddings: number[][]; startIndex: number }> = [];
+
+  for (let i = 0; i < batchTasks.length; i += PARALLEL_BATCHES) {
+    const parallelTasks = batchTasks.slice(i, i + PARALLEL_BATCHES);
+
+    const parallelResults = await Promise.all(
+      parallelTasks.map(async ({ batch, batchNumber, startIndex }) => {
+        try {
+          console.log(`  Batch ${batchNumber}/${totalBatches} (${batch.length} chunks)...`);
+
+          // Create embedding texts for this batch
+          const embeddingTexts = batch.map(createEmbeddingText);
+
+          // Generate embeddings
+          const { embeddings } = await embedMany({
+            model: openai.embedding(EMBEDDING_MODEL),
+            values: embeddingTexts,
+          });
+
+          console.log(`    ✓ Embedded batch ${batchNumber}`);
+
+          return { embeddings, startIndex };
+        } catch (error) {
+          console.error(`    ✗ Failed to embed batch ${batchNumber}:`, error);
+          throw error;
+        }
+      })
+    );
+
+    results.push(...parallelResults);
+  }
+
+  // Attach embeddings to chunks
+  results.forEach(({ embeddings, startIndex }) => {
+    embeddings.forEach((embedding, idx) => {
+      const chunkIndex = startIndex + idx;
+      chunksWithEmbeddings[chunkIndex] = {
+        ...chunksWithEmbeddings[chunkIndex],
+        embedding,
+      };
+    });
+  });
 
   console.log(`✓ Successfully embedded ${totalChunks} chunks`);
 

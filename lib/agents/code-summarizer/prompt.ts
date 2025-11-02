@@ -10,7 +10,7 @@ import type { CodeSummarizerInput } from './types';
  */
 export const SYSTEM_MESSAGE = `You are an expert code compression specialist.
 
-Your task: Compress code while preserving semantic meaning and structure.
+Your task: Compress code to approximately the target size while preserving semantic meaning.
 
 Rules:
 1. Preserve function signatures, class definitions, and key logic
@@ -18,7 +18,7 @@ Rules:
 3. Maintain external dependencies (imports)
 4. Remove verbose comments (keep essential ones)
 5. Simplify implementation details where possible
-6. Target ~50% of original size
+6. Target the specified character count (NOT a percentage)
 7. Output must still be valid, readable code
 
 What to preserve:
@@ -33,11 +33,12 @@ What to compress:
 - Long implementations → simplified versions
 - Repetitive code → summarized patterns
 - Detailed error handling → general patterns
+- Whitespace and formatting
 
 The compressed code should give a clear understanding of what the code does without being verbose.
 
 Return structured JSON with:
-- compressed: The compressed code (valid syntax)
+- compressed: The compressed code (valid syntax, approximately target size)
 - keyComponents: List of main functions/methods/variables
 - purpose: One-sentence description
 - dependencies: External imports/packages used`;
@@ -46,7 +47,7 @@ Return structured JSON with:
  * Build user message from input (dynamic)
  */
 export function buildUserMessage(input: CodeSummarizerInput): string {
-  const { chunk, targetSize = 500 } = input;
+  const { chunk, targetSize = 2000 } = input;
 
   const currentSize = chunk.code.length;
   const reduction = Math.round((1 - targetSize / currentSize) * 100);

@@ -11,13 +11,19 @@ export const codeSummarizerSchema = z.object({
 
   keyComponents: z
     .array(z.string())
+    .optional()
+    .default([])
     .describe('Main functions/methods/variables within this code'),
 
   purpose: z
     .string()
+    .optional()
+    .default('Code chunk')
     .describe('What this code does in one concise sentence'),
 
   dependencies: z
     .array(z.string())
+    .optional()
+    .default([])
     .describe('External dependencies/imports used by this code'),
 });

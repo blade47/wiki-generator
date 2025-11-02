@@ -22,6 +22,7 @@ export interface RepoData {
   name: string;
   fullName: string;
   description: string;
+  defaultBranch: string;
   files: RepoFile[];
   readme?: string;
   packageJson?: string;
@@ -167,7 +168,7 @@ export async function fetchRepository(
     maxFileSize?: number; // bytes
   } = {}
 ): Promise<RepoData> {
-  const { maxFiles = 100, maxFileSize = 500000 } = options;
+  const { maxFiles = 300, maxFileSize = 500000 } = options;
 
   const repo = parseGitHubUrl(githubUrl);
   const octokit = createOctokit();
@@ -179,6 +180,12 @@ export async function fetchRepository(
     owner: repo.owner,
     repo: repo.repo,
   });
+
+  // Use the repo's default branch
+  const defaultBranch = repoInfo.default_branch || 'main';
+  repo.branch = defaultBranch;
+
+  console.log(`Using branch: ${defaultBranch}`);
 
   // Get file tree
   const tree = await fetchRepoTree(octokit, repo);
@@ -201,30 +208,42 @@ export async function fetchRepository(
     })
     .slice(0, maxFiles);
 
-  console.log(`Fetching ${filesToFetch.length} files...`);
+  console.log(`Fetching ${filesToFetch.length} files in batches...`);
 
-  // Fetch file contents
+  // Fetch file contents in controlled batches to avoid rate limits
+  const BATCH_SIZE = 20; // Fetch 20 files at a time
+  const fileResults: (RepoFile | null)[] = [];
+
+  for (let i = 0; i < filesToFetch.length; i += BATCH_SIZE) {
+    const batch = filesToFetch.slice(i, i + BATCH_SIZE);
+    console.log(`  Fetching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(filesToFetch.length / BATCH_SIZE)} (${batch.length} files)...`);
+
+    const batchResults = await Promise.all(
+      batch.map(async file => {
+        const content = await fetchFileContent(octokit, repo, file.path);
+        return content ? { path: file.path, content, size: file.size } : null;
+      })
+    );
+
+    fileResults.push(...batchResults);
+  }
+
+  // Filter out failed fetches and extract special files
   const files: RepoFile[] = [];
   let readme: string | undefined;
   let packageJson: string | undefined;
 
-  for (const file of filesToFetch) {
-    const content = await fetchFileContent(octokit, repo, file.path);
+  for (const result of fileResults) {
+    if (!result) continue;
 
-    if (!content) continue;
-
-    files.push({
-      path: file.path,
-      content,
-      size: file.size,
-    });
+    files.push(result);
 
     // Extract special files
-    if (file.path.toLowerCase() === 'readme.md') {
-      readme = content;
+    if (result.path.toLowerCase() === 'readme.md') {
+      readme = result.content;
     }
-    if (file.path === 'package.json') {
-      packageJson = content;
+    if (result.path === 'package.json') {
+      packageJson = result.content;
     }
   }
 
@@ -234,6 +253,7 @@ export async function fetchRepository(
     name: repo.repo,
     fullName: repoInfo.full_name,
     description: repoInfo.description || '',
+    defaultBranch,
     files,
     readme,
     packageJson,

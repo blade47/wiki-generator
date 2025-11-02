@@ -50,9 +50,8 @@ export async function GET() {
       body: {
         githubUrl: 'string (required)',
         options: {
-          maxFiles: 'number (optional, default: 100)',
+          maxFiles: 'number (optional, default: 300)',
           maxFileSize: 'number (optional, default: 500000)',
-          maxFeaturesPerCategory: 'number (optional, default: 5)',
         },
       },
     },

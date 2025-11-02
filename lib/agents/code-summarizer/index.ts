@@ -20,7 +20,7 @@ export const codeSummarizerAgent = defineAgent({
   buildUserMessage,
   settings: {
     temperature: 0.2, // Low temperature for consistency
-    maxOutputTokens: 2000, // Enough for compressed code
+    maxOutputTokens: 4000, // Enough for compressed code (500 chars target + metadata + safety buffer)
   },
 });
 

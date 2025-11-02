@@ -1,5 +1,11 @@
 /**
- * Test script for Complete RAG Index
+ * Test script for Simplified RAG Index
+ *
+ * Tests the core functionality used in production:
+ * - Chunking
+ * - Compression
+ * - Embeddings
+ * - Vector search
  */
 
 // Load environment variables
@@ -7,6 +13,8 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import { RAGIndex } from '@/lib/rag/index';
+import { generateEmbedding } from '@/lib/rag/embedder';
+import { vectorSearch } from '@/lib/rag/vector-search';
 
 // Test files
 const testFiles = [
@@ -114,56 +122,53 @@ JWT tokens are signed with a secret key from environment variables.
   },
 ];
 
-console.log('=== Testing Complete RAG Index ===\n');
+console.log('=== Testing Simplified RAG Index ===\n');
 
 async function runTest() {
   // 1. Create index with configuration
   console.log('Creating RAG Index...\n');
   const index = new RAGIndex({
     enableCompression: false, // Disable for clearer testing
-    reranking: {
-      stage1TopK: 100,
-      stage2TopK: 5, // Smaller for testing
-      stage3TopK: 3, // Smaller for testing
-    },
   });
 
   // 2. Build index
   await index.build(testFiles);
 
-  // 3. Test queries
+  // 3. Get chunks
+  const chunks = index.getChunks();
+  console.log(`✓ Built index with ${chunks.length} chunks\n`);
+
+  // 4. Test queries with simple vector search
   const queries = [
     'How do I authenticate a user with username and password?',
     'How do I create a new user account?',
     'What security measures are implemented?',
   ];
 
-  console.log('\n=== Testing Queries ===\n');
+  console.log('=== Testing Queries (Vector Search) ===\n');
 
   for (const query of queries) {
     console.log('═'.repeat(70));
     console.log(`Query: "${query}"\n`);
 
-    // Get detailed breakdown
-    const results = await index.searchWithBreakdown(query);
+    // Generate query embedding
+    const queryEmbedding = await generateEmbedding(query);
+
+    // Simple vector search
+    const results = vectorSearch(queryEmbedding, chunks, 3);
 
     console.log('Top 3 Results:\n');
-    results.stage3.forEach((r, idx) => {
+    results.forEach((r, idx) => {
       console.log(`${idx + 1}. ${r.chunk.type.toUpperCase()}: "${r.chunk.name}"`);
       console.log(`   File: ${r.chunk.filePath}:${r.chunk.startLine}`);
-      console.log(`   Score: ${r.score.toFixed(1)}/10`);
-
-      if ('explanation' in r) {
-        console.log(`   Reasoning: ${r.explanation}`);
-      }
-
+      console.log(`   Score: ${r.score.toFixed(4)}`);
       console.log('');
     });
 
     console.log('');
   }
 
-  // 4. Show final statistics
+  // 5. Show final statistics
   console.log('═'.repeat(70));
   console.log('\n=== Final Statistics ===\n');
 
@@ -171,17 +176,12 @@ async function runTest() {
   console.log(`Total chunks indexed: ${stats.totalChunks}`);
   console.log(`Chunks with embeddings: ${stats.withEmbeddings}`);
   console.log(`Compressed chunks: ${stats.compressed} (${stats.compressionRate}%)`);
-  console.log('');
-  console.log(`BM25-Code index: ${stats.codeBM25?.uniqueTerms} unique terms`);
-  console.log(`BM25-Text index: ${stats.textBM25?.uniqueTerms} unique terms`);
 
   console.log('\n=== Test Complete ===');
-  console.log('\n✓ Complete RAG pipeline working!');
+  console.log('\n✓ Simplified RAG pipeline working!');
   console.log('  ✓ Chunking (code + markdown)');
   console.log('  ✓ Embeddings (batch processing)');
-  console.log('  ✓ BM25 (dual: code + text)');
-  console.log('  ✓ Hybrid search (RRF fusion)');
-  console.log('  ✓ 3-stage reranking (100 → 5 → 3)');
+  console.log('  ✓ Vector search (cosine similarity)');
 }
 
 runTest().catch(err => {

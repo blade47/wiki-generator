@@ -42,15 +42,22 @@ export function defineAgent<TInput, TOutput>(
         { role: 'user', content: config.buildUserMessage(input) },
       ];
 
-      const { object } = await generateObject({
-        model: openai(settings.model),
-        messages,
-        schema: config.schema,
-        temperature: settings.temperature,
-        maxTokens: settings.maxOutputTokens,
-      });
-
-      return object as TOutput;
+      try {
+        const result = await generateObject({
+          model: openai(settings.model),
+          messages,
+          schema: config.schema,
+          temperature: settings.temperature,
+          maxTokens: settings.maxOutputTokens,
+        });
+        return result.object as TOutput;
+      } catch (error) {
+        console.error(`[${config.name}] Agent execution failed:`, error);
+        if (error instanceof Error) {
+          console.error(`[${config.name}] Error details:`, error.message);
+        }
+        throw error;
+      }
     },
   };
 }

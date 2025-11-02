@@ -43,6 +43,7 @@ async function runTest() {
     console.log(`  Name: ${repoData.name}`);
     console.log(`  Full Name: ${repoData.fullName}`);
     console.log(`  Description: ${repoData.description}`);
+    console.log(`  Default Branch: ${repoData.defaultBranch}`);
     console.log(`  Files fetched: ${repoData.files.length}`);
     console.log(`  README: ${repoData.readme ? '✓ Found' : '✗ Not found'}`);
     console.log(`  package.json: ${repoData.packageJson ? '✓ Found' : '✗ Not found'}`);

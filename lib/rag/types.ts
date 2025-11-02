@@ -27,12 +27,10 @@ export interface BM25State {
 
 /**
  * Serializable RAG Index State
- * Contains everything needed to rebuild search functionality
+ * Contains chunks with embeddings for vector search
  */
 export interface RAGIndexState {
   chunks: CodeChunk[];
-  codeBM25: BM25State;
-  textBM25: BM25State;
 }
 
 export interface CodeChunk {

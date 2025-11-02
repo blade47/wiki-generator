@@ -38,6 +38,12 @@ export interface Feature {
   description: string;
 
   /**
+   * Importance score (1-10, where 10 is critical and 1 is minor)
+   * Defaults to 5 if not provided
+   */
+  importance?: number;
+
+  /**
    * Related code chunks (references by ID)
    */
   relatedChunks: string[];
