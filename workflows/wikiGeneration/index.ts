@@ -11,7 +11,6 @@ import { runFeatures } from './steps/runFeatures';
 import { runArchitecture } from './steps/runArchitecture';
 import { generateDocs } from './steps/generateDocs';
 import { saveToBlob } from './steps/saveToBlob';
-import { saveToVector } from './steps/saveToVector';
 
 import type { WikiGenerationInput, WikiOutput, WikiData, WikiPage } from './types';
 import {findRelevantCode} from "@/workflows/wikiGeneration/steps/findRelevantCode";
@@ -42,28 +41,43 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
   // Step 1: Fetch repository
   const repoData = await fetchRepo(githubUrl, maxFiles, maxFileSize);
 
-  // Step 2: Build RAG index and get serializable state
-  const indexState = await buildIndex(repoData.files);
-
-  // Step 2.5: Save embeddings to Upstash Vector for search
+  // Step 2-3: Build RAG index and Run Recon Agent IN PARALLEL
+  // Recon only needs README/package.json, not chunks, so run concurrently
   const repoSlug = slugify(repoData.name);
-  await saveToVector(repoData.name, repoSlug, githubUrl, repoData.defaultBranch, indexState);
+  console.log('Running index building and recon in parallel...');
+  const [{ chunks }, recon] = await Promise.all([
+    buildIndex(
+      repoData.files,
+      repoData.name,
+      repoSlug,
+      githubUrl,
+      repoData.defaultBranch
+    ),
+    runRecon(repoData),
+  ]);
+  console.log('✓ Index building and recon completed');
 
-  // Step 3: Run Recon Agent
-  const recon = await runRecon(repoData);
+  // Step 4-5: Run Features + Architecture Agents IN PARALLEL
+  // Both depend on recon but not on each other, so run concurrently
+  console.log('Running Features and Architecture agents in parallel...');
+  const [features, architecture] = await Promise.all([
+    runFeatures(repoData, recon, chunks),
+    runArchitecture(recon, chunks),
+  ]);
+  console.log('✓ Features and Architecture agents completed');
 
-  // Step 4: Run Features Agent
-  const features = await runFeatures(repoData, recon, indexState.chunks);
-
-  // Step 5: Run Architecture Agent
-  const architecture = await runArchitecture(recon, indexState.chunks);
-
-  // Step 7: Generate documentation for each feature (in parallel batches)
+  // Step 7: Generate documentation for important features only (in parallel)
   const pages: WikiPage[] = [];
 
-  // Sort features by importance (high to low) to prioritize critical features
-  const featuresToProcess =
-      [...features.features].sort((a, b) => (b.importance ?? 5) - (a.importance ?? 5));
+  // Filter to only important features (importance >= 4) and sort by importance
+  const featuresToProcess = [...features.features]
+    .filter(f => (f.importance ?? 5) >= 4) // Only document important features
+    .sort((a, b) => (b.importance ?? 5) - (a.importance ?? 5));
+
+  const skippedCount = features.features.length - featuresToProcess.length;
+  if (skippedCount > 0) {
+    console.log(`Skipping ${skippedCount} low-importance features (focusing on ${featuresToProcess.length} important ones)`);
+  }
 
   console.log(`Generating documentation for ${featuresToProcess.length} features in parallel...`);
 
@@ -71,7 +85,7 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
   const results = await Promise.all(
     featuresToProcess.map(async feature => {
       // Use chunks already identified by Features Agent
-      let relevantChunks = indexState.chunks.filter(chunk =>
+      let relevantChunks = chunks.filter(chunk =>
         feature.relatedChunks.includes(chunk.id)
       );
 
@@ -83,7 +97,7 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
           repoName: repoData.name,
           repoOverview: recon.overview,
           techStack: recon.techStack,
-          indexState,
+          indexState: { chunks },
         });
       } else {
         console.log(`[Workflow] Using ${relevantChunks.length} chunks from Features Agent for "${feature.name}"`);
@@ -146,7 +160,7 @@ export async function wikiGenerationWorkflow(input: WikiGenerationInput): Promis
     pages,
     metadata: {
       totalFiles: repoData.files.length,
-      totalChunks: indexState.chunks.length,
+      totalChunks: chunks.length,
       generatedAt: new Date().toISOString(),
     },
   };

@@ -13,13 +13,13 @@ export async function runArchitecture(
   'use step';
 
   console.log(`[Step] Running Architecture Agent`);
-  console.log(`[Step] Total chunks: ${chunks.length}, using: ${Math.min(chunks.length, 300)}`);
+  console.log(`[Step] Total chunks: ${chunks.length}, using: ${Math.min(chunks.length, 30)}`);
 
   const architecture = await architectureAgent.execute({
     repoOverview: recon.overview,
     architecturePattern: recon.architecture,
     directories: recon.structure,
-    codeChunks: chunks.slice(0, 300), // Cap at 300 chunks (~120K tokens) for token limit safety
+    codeChunks: chunks.slice(0, 30), // Top 30 prioritized chunks (enough to identify patterns)
   });
 
   console.log(`[Step] ✓ Architecture analysis complete`);

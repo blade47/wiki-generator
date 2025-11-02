@@ -224,7 +224,7 @@ export async function fetchRepository(
   console.log(`Fetching ${filesToFetch.length} files in batches...`);
 
   // Fetch file contents in controlled batches to avoid rate limits
-  const BATCH_SIZE = 20; // Fetch 20 files at a time
+  const BATCH_SIZE = 50; // Fetch 50 files at a time (increased from 20 for speed)
   const fileResults: (RepoFile | null)[] = [];
 
   for (let i = 0; i < filesToFetch.length; i += BATCH_SIZE) {

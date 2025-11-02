@@ -86,10 +86,25 @@ export async function saveChunksToVector(
 
     console.log(`[Vector Storage] Upserting batch ${batchNumber}/${totalBatches} (${batch.length} vectors)...`);
 
-    await index.upsert(batch);
+    try {
+      await index.upsert(batch);
+      inserted += batch.length;
+      console.log(`[Vector Storage] ✓ Batch ${batchNumber}/${totalBatches} complete`);
+    } catch (error) {
+      console.error(`[Vector Storage] ❌ Failed batch ${batchNumber}/${totalBatches}:`, error);
 
-    inserted += batch.length;
-    console.log(`[Vector Storage] ✓ Batch ${batchNumber}/${totalBatches} complete`);
+      // Check for specific error types
+      if (error instanceof Error) {
+        if (error.message.includes('rate limit') || error.message.includes('429')) {
+          console.error(`[Vector Storage] Rate limit hit. Consider adding delays between batches.`);
+        } else if (error.message.includes('413') || error.message.includes('too large')) {
+          console.error(`[Vector Storage] Payload too large. Batch size: ${batch.length} vectors`);
+        }
+      }
+
+      // Re-throw to let caller handle
+      throw error;
+    }
   }
 
   console.log(`[Vector Storage] ✓ Saved ${inserted} vectors to Upstash for ${repoName}`);

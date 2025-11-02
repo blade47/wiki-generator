@@ -19,7 +19,7 @@ export const docsGeneratorAgent = defineAgent({
   systemMessage: SYSTEM_MESSAGE,
   buildUserMessage,
   settings: {
-    maxOutputTokens: 4000, // Documentation can be long
+    maxOutputTokens: 3000, // Reduced from 4000 for speed (still detailed enough)
   },
 });
 

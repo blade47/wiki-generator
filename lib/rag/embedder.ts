@@ -15,7 +15,7 @@ import type { CodeChunk } from './types';
 export const EMBEDDING_MODEL = 'text-embedding-3-small';
 export const EMBEDDING_DIMENSIONS = 1536;
 export const BATCH_SIZE = 50; // Reduced from 100 to avoid 8192 token limit
-export const PARALLEL_BATCHES = 3; // Process 3 batches concurrently (conservative)
+export const PARALLEL_BATCHES = 10; // Process 10 batches concurrently (increased from 3 for speed)
 
 /**
  * Maximum code size for embeddings (to avoid token limits)

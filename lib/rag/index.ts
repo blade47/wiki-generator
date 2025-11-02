@@ -68,7 +68,7 @@ export class RAGIndex {
   /**
    * Build index from files
    */
-  async build(files: IndexFile[]): Promise<void> {
+  async build(files: IndexFile[], maxChunksToEmbed?: number): Promise<void> {
     console.log('\n=== Building RAG Index ===\n');
 
     // 1. Chunk all files
@@ -85,9 +85,36 @@ export class RAGIndex {
       console.log('Step 2: Skipping compression (disabled)\n');
     }
 
-    // 3. Generate embeddings
-    console.log('Step 3: Generating embeddings...');
-    this.chunks = await embedChunks(allChunks);
+    // 3. Prioritize and limit chunks if needed (BEFORE embedding)
+    let chunksToEmbed = allChunks;
+
+    if (maxChunksToEmbed && allChunks.length > maxChunksToEmbed) {
+      console.log(`Step 3: Prioritizing chunks (${allChunks.length} → ${maxChunksToEmbed})...`);
+
+      chunksToEmbed = [...allChunks]
+        .sort((a, b) => {
+          // Priority 1: Type (function > class > method > constant)
+          const typeScore = (type: string) => {
+            if (type === 'function') return 4;
+            if (type === 'class') return 3;
+            if (type === 'method') return 2;
+            return 1;
+          };
+          const typeA = typeScore(a.type);
+          const typeB = typeScore(b.type);
+          if (typeA !== typeB) return typeB - typeA;
+
+          // Priority 2: Code size (larger = more important)
+          return b.code.length - a.code.length;
+        })
+        .slice(0, maxChunksToEmbed);
+
+      console.log(`  ✓ Limited to ${maxChunksToEmbed} most important chunks (${allChunks.length - maxChunksToEmbed} excluded from embedding)\n`);
+    }
+
+    // 4. Generate embeddings (only for selected chunks)
+    console.log(`Step ${maxChunksToEmbed ? '4' : '3'}: Generating embeddings for ${chunksToEmbed.length} chunks...`);
+    this.chunks = await embedChunks(chunksToEmbed);
     console.log('');
 
     console.log('=== Index Build Complete ===\n');
