@@ -36,6 +36,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: ['React', 'Router'],
       exports: ['App'],
+      calls: [],
       dependencies: ['react-router-dom'],
     },
     keywords: ['app', 'router', 'layout'],
@@ -66,6 +67,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: ['zustand'],
       exports: ['useTodoStore'],
+      calls: [],
       dependencies: ['zustand'],
     },
     keywords: ['store', 'state', 'zustand'],
@@ -86,6 +88,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: [],
       exports: ['getTodos'],
+      calls: [],
       jsDoc: '/**\n * Fetch todos from API\n */',
       dependencies: [],
     },

@@ -112,6 +112,7 @@ export async function authenticateUser(
   context: {
     imports: ['bcrypt', 'jsonwebtoken', 'database'],
     exports: ['authenticateUser'],
+      calls: [],
     dependencies: ['bcrypt', 'jwt', 'database'],
   },
   keywords: ['authenticate', 'user', 'auth', 'login'],

@@ -55,6 +55,7 @@ export interface CodeChunk {
   context: {
     imports: string[]; // Relevant imports used by this chunk
     exports: string[]; // What this chunk exports
+    calls: string[]; // Function/method names called within this chunk
     parentClass?: string; // If method, parent class name
     jsDoc?: string; // JSDoc/docstring comments
     dependencies: string[]; // Other chunks this depends on

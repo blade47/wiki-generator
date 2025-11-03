@@ -91,6 +91,7 @@ export function chunkReadme(filePath: string, content: string): CodeChunk {
     context: {
       imports: [],
       exports: [],
+      calls: [],
       dependencies: [],
     },
     keywords: ['readme', 'documentation', ...extractMarkdownKeywords(content)],
@@ -133,6 +134,7 @@ export function chunkMarkdownBySections(filePath: string, content: string): Code
         context: {
           imports: [],
           exports: [],
+          calls: [],
           dependencies: [],
         },
         keywords: extractMarkdownKeywords(content),
@@ -159,6 +161,7 @@ export function chunkMarkdownBySections(filePath: string, content: string): Code
       context: {
         imports: [],
         exports: [],
+        calls: [],
         dependencies: [],
       },
       keywords: [
@@ -218,6 +221,7 @@ export function chunkMetadata(filePath: string, content: string): CodeChunk {
     context: {
       imports: [],
       exports: [],
+      calls: [],
       dependencies: typeof metadata.dependencies === 'object' && metadata.dependencies
         ? Object.keys(metadata.dependencies)
         : [],

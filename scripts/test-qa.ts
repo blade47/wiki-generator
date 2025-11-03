@@ -36,6 +36,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: ['bcrypt', 'jsonwebtoken'],
       exports: ['login'],
+      calls: [],
       jsDoc: '/**\n * Authenticate user with email and password\n */',
       dependencies: ['bcrypt', 'jwt', 'database'],
     },
@@ -66,6 +67,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: [],
       exports: ['createTodo'],
+      calls: [],
       jsDoc: '/**\n * Create a new todo for a user\n */',
       dependencies: ['database'],
     },

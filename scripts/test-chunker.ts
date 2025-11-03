@@ -101,6 +101,10 @@ for (const file of testFiles) {
       console.log(`    📝 Doc: ${docPreview}...`);
     }
 
+    if (chunk.context.calls && chunk.context.calls.length > 0) {
+      console.log(`    📞 Calls: ${chunk.context.calls.join(', ')}`);
+    }
+
     console.log(`    💾 Size: ${chunk.code.length} chars`);
     console.log('');
   }
@@ -115,6 +119,29 @@ for (const file of testFiles) {
       console.log(`    ✓ ${chunk.name}: Line numbers correct`);
     } else {
       console.log(`    ✗ ${chunk.name}: Line numbers might be off`);
+    }
+  }
+
+  // Verify call extraction
+  console.log('\n  ✓ Verifying call extraction...');
+  const expectedCalls: Record<string, string[]> = {
+    'login': ['findUser'],  // login() calls this.findUser()
+    'findUser': ['query'],  // findUser() calls database.query()
+    'hashPassword': ['hashSync'],  // hashPassword() calls bcrypt.hashSync()
+    'add_item': ['append'],  // add_item() calls append()
+  };
+
+  for (const chunk of chunks) {
+    const expected = expectedCalls[chunk.name];
+    if (expected) {
+      const hasExpectedCalls = expected.every(call =>
+        chunk.context.calls.includes(call)
+      );
+      if (hasExpectedCalls) {
+        console.log(`    ✓ ${chunk.name}: Extracted calls correctly (${chunk.context.calls.join(', ')})`);
+      } else {
+        console.log(`    ✗ ${chunk.name}: Expected [${expected.join(', ')}], got [${chunk.context.calls.join(', ')}]`);
+      }
     }
   }
 }

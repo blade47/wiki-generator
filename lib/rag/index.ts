@@ -12,6 +12,9 @@ import { chunkFile } from './chunker';
 import { embedChunks } from './embedder';
 import { codeSummarizerAgent } from '@/lib/agents/code-summarizer';
 
+// Export CodeGraph for knowledge graph features
+export { CodeGraph } from './code-graph';
+
 /**
  * File to index
  */

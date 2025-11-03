@@ -201,6 +201,59 @@ function extractExports(code: string): string[] {
 }
 
 /**
+ * Extract function/method calls from AST node
+ * Universal approach - works for all languages
+ */
+function extractCalls(node: Parser.SyntaxNode): string[] {
+  const calls: string[] = [];
+
+  function visit(n: Parser.SyntaxNode) {
+    // Universal: Any node with a 'function' field is a call
+    const functionNode = n.childForFieldName('function');
+    if (functionNode) {
+      const name = extractCallName(functionNode);
+      if (name) calls.push(name);
+    }
+
+    // Recurse into children
+    for (let i = 0; i < n.childCount; i++) {
+      const child = n.child(i);
+      if (child) visit(child);
+    }
+  }
+
+  visit(node);
+  return [...new Set(calls)]; // Deduplicate
+}
+
+/**
+ * Extract function name from call node
+ * Handles: identifier, obj.method, std::io::read, etc.
+ */
+function extractCallName(node: Parser.SyntaxNode): string | null {
+  // Simple identifier: foo()
+  if (node.type === 'identifier') {
+    return node.text;
+  }
+
+  // Member access: obj.method() → "method"
+  // Works for JS (property), Python (attribute), Go (field)
+  const member = node.childForFieldName('property') ||
+                 node.childForFieldName('attribute') ||
+                 node.childForFieldName('field');
+  if (member) {
+    return member.text;
+  }
+
+  // Path (Rust): std::io::read → "read"
+  if (node.text.includes('::')) {
+    return node.text.split('::').pop() || null;
+  }
+
+  return null;
+}
+
+/**
  * Extract keywords from code for BM25 search
  */
 function extractKeywords(chunk: Omit<CodeChunk, 'keywords' | 'embedding'>): string[] {
@@ -262,8 +315,8 @@ function extractChunk(
 
   const jsDoc = extractJSDoc(node, lines);
   const imports = extractImports(code);
-
   const exports = extractExports(code);
+  const calls = extractCalls(node);
 
   const baseChunk: Omit<CodeChunk, 'keywords' | 'embedding'> = {
     id: createChunkId(filePath, startLine),
@@ -277,6 +330,7 @@ function extractChunk(
     context: {
       imports,
       exports,
+      calls,
       parentClass,
       jsDoc,
       dependencies: [],

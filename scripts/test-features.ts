@@ -37,6 +37,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: ['bcrypt', 'jsonwebtoken'],
       exports: ['login'],
+      calls: [],
       jsDoc: '/**\n * Authenticate user with email and password\n */',
       dependencies: ['bcrypt', 'jwt', 'database'],
     },
@@ -70,6 +71,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: ['bcrypt'],
       exports: ['createUser'],
+      calls: [],
       jsDoc: '/**\n * Register a new user account\n */',
       dependencies: ['bcrypt', 'database'],
     },
@@ -107,6 +109,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: [],
       exports: ['TodoManager'],
+      calls: [],
       jsDoc: '/**\n * Manages todo items for users\n */',
       dependencies: ['database'],
     },
@@ -133,6 +136,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: [],
       exports: ['searchTodos'],
+      calls: [],
       jsDoc: '/**\n * Search todos by text content\n */',
       dependencies: ['database'],
     },

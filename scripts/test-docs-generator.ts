@@ -57,6 +57,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: ['bcrypt', 'jsonwebtoken'],
       exports: ['login'],
+      calls: [],
       jsDoc: '/**\n * Authenticate user with email and password\n * @returns User object and JWT token\n */',
       dependencies: ['bcrypt', 'jwt', 'database'],
     },
@@ -93,6 +94,7 @@ const codeChunks: CodeChunk[] = [
     context: {
       imports: ['bcrypt'],
       exports: ['register'],
+      calls: [],
       jsDoc: '/**\n * Register a new user account\n * @returns Created user object\n */',
       dependencies: ['bcrypt', 'database'],
     },

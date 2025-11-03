@@ -2,16 +2,17 @@
 
 **Transform any GitHub repository into comprehensive, AI-powered documentation with semantic code search.**
 
-Built with advanced RAG (Retrieval-Augmented Generation) pipeline, multi-agent system, and vector search for intelligent code discovery.
+Built with advanced RAG (Retrieval-Augmented Generation) pipeline, **knowledge graph for code relationships**, multi-agent system, and vector search for intelligent code discovery.
 
 ---
 
 ## 🎯 What It Does
 
 1. **📖 Wiki Generation** - Analyzes GitHub repos and generates feature-focused documentation
-2. **🔍 Semantic Search** - Natural language search across all indexed codebases
-3. **🤖 AI Agents** - 4 specialized agents analyze tech stack, features, and architecture
-4. **🔗 GitHub Integration** - Direct links to source code with line numbers
+2. **🧠 Knowledge Graph** - Discovers complete features by following function calls
+3. **🔍 Semantic Search** - Natural language search across all indexed codebases
+4. **🤖 AI Agents** - 4 specialized agents analyze tech stack, features, and architecture
+5. **🔗 GitHub Integration** - Direct links to source code with line numbers
 
 ---
 
@@ -19,8 +20,9 @@ Built with advanced RAG (Retrieval-Augmented Generation) pipeline, multi-agent s
 
 ### **Wiki Generation**
 - Fetches code from any public GitHub repository
+- Builds knowledge graph from function calls (discovers code relationships)
 - Analyzes tech stack and architecture patterns
-- Identifies user-facing features (not technical layers)
+- Identifies user-facing features with complete code flows
 - Generates MDX documentation with code examples
 - Stores wikis in Vercel Blob for instant access
 
@@ -33,9 +35,15 @@ Built with advanced RAG (Retrieval-Augmented Generation) pipeline, multi-agent s
 
 ### **Multi-Agent System**
 1. **Recon Agent** - Identifies tech stack, languages, frameworks, and architecture
-2. **Features Agent** - Detects user-facing features from codebase structure
+2. **Features Agent** - Detects user-facing features using knowledge graph (follows function calls to discover complete features)
 3. **Architecture Agent** - Analyzes architectural patterns and design
 4. **Docs Generator** - Creates comprehensive documentation with code citations
+
+### **Knowledge Graph**
+- Extracts function calls from code using AST parsing (all languages supported)
+- Builds graph: `function A` → calls → `function B` → calls → `function C`
+- Discovers complete features by finding entry points and traversing the graph
+- Example: `login()` → discovers `validateInput()`, `findUser()`, `generateToken()` (complete auth flow)
 
 ---
 
@@ -131,6 +139,7 @@ wiki-generator/
 
 ### **Code Analysis**
 - **tree-sitter** (AST parsing for JS/TS/Python/Go/Rust)
+- **Knowledge Graph** (in-memory graph for code relationships)
 - **Octokit** (GitHub API)
 
 ---

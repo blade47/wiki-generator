@@ -155,6 +155,7 @@ export async function searchSimilarCode(
           context: {
             imports: [],
             exports: [],
+            calls: [],
             dependencies: [],
           },
           keywords: [],
