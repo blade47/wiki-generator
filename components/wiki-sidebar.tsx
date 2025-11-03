@@ -17,10 +17,11 @@ interface WikiPage {
 
 interface WikiSidebarProps {
   repoName: string;
+  repoSlug: string;
   pages: WikiPage[];
 }
 
-export function WikiSidebar({ repoName, pages }: WikiSidebarProps) {
+export function WikiSidebar({ repoName, repoSlug, pages }: WikiSidebarProps) {
   const pathname = usePathname();
 
   // Group pages by category
@@ -43,7 +44,7 @@ export function WikiSidebar({ repoName, pages }: WikiSidebarProps) {
     <div className="flex h-full w-72 flex-col border-r bg-background">
       {/* Header */}
       <div className="flex h-14 items-center border-b px-4">
-        <Link href={`/wiki/${repoName}`} className="flex items-center gap-2 font-semibold truncate">
+        <Link href={`/wiki/${repoSlug}`} className="flex items-center gap-2 font-semibold truncate">
           <BookOpen className="h-5 w-5 flex-shrink-0" />
           <span className="truncate" title={repoName}>{repoName}</span>
         </Link>
@@ -55,10 +56,10 @@ export function WikiSidebar({ repoName, pages }: WikiSidebarProps) {
           {/* Overview */}
           <div>
             <Link
-              href={`/wiki/${repoName}`}
+              href={`/wiki/${repoSlug}`}
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                pathname === `/wiki/${repoName}` ? "bg-accent" : "transparent"
+                pathname === `/wiki/${repoSlug}` ? "bg-accent" : "transparent"
               )}
             >
               Overview
@@ -77,10 +78,10 @@ export function WikiSidebar({ repoName, pages }: WikiSidebarProps) {
                 {pagesByCategory[category].map((page) => (
                   <Link
                     key={page.slug}
-                    href={`/wiki/${repoName}/${page.slug}`}
+                    href={`/wiki/${repoSlug}/${page.slug}`}
                     className={cn(
                       "flex items-start gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent group",
-                      pathname === `/wiki/${repoName}/${page.slug}`
+                      pathname === `/wiki/${repoSlug}/${page.slug}`
                         ? "bg-accent font-medium"
                         : "text-muted-foreground"
                     )}

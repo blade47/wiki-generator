@@ -24,6 +24,7 @@ export interface WikiPage {
 
 export interface WikiData {
   repoName: string;
+  repoSlug: string;
   repoUrl: string;
   pages: WikiPage[];
   indexContent: string;
@@ -73,6 +74,7 @@ export async function loadWikiData(repoSlug: string): Promise<WikiData | null> {
 
   return {
     repoName: metadata.repoInfo.name,
+    repoSlug,
     repoUrl: metadata.repoInfo.url,
     pages,
     indexContent: indexBody,

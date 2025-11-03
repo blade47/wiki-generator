@@ -20,6 +20,7 @@ export default async function WikiLayout({
     <div className="flex min-h-[calc(100vh-4rem)]">
       <WikiSidebar
         repoName={wikiData.repoName}
+        repoSlug={wikiData.repoSlug}
         pages={wikiData.pages.map(p => ({
           slug: p.slug,
           title: p.title,
