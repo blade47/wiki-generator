@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { BookOpen, Sparkles, Code2, Search, Brain, Zap } from 'lucide-react';
+import { BookOpen, Sparkles, Code2, Search, Brain, Network } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -18,7 +18,7 @@ export default function Home() {
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
             Automatically generate comprehensive, AI-powered documentation for any GitHub repository.
-            Powered by RAG, vector search, and multi-agent AI systems.
+            Powered by knowledge graphs, RAG, vector search, and multi-agent AI systems.
           </p>
           <div className="flex gap-4 justify-center">
             <Link href="/generate">
@@ -78,12 +78,12 @@ export default function Home() {
 
           <div className="border rounded-lg p-6">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-              <Zap className="h-6 w-6 text-primary" />
+              <Network className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Smart Chunking</h3>
+            <h3 className="text-xl font-semibold mb-2">Knowledge Graph</h3>
             <p className="text-muted-foreground">
-              Semantic code chunking extracts functions, classes, and methods with precise line numbers
-              and context for accurate documentation.
+              Discovers complete code flows by following function calls from entry points.
+              Ensures documentation covers entire features, not just isolated code fragments.
             </p>
           </div>
 
